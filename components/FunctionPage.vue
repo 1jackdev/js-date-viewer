@@ -3,13 +3,18 @@
     <h1>JS Date Viewer</h1>
     <div class="inputs">
       <div>
-        <label for="function-search">Function Search:</label>
-        <input id="function-search" type="text" v-model="functionSearch" />
-        <label for="datetime-input">DateTime Input:</label>
+        <label for="function-search">Function Name</label>
+        <input
+          id="function-search"
+          type="text"
+          placeholder="date, locale, etc."
+          v-model="functionSearch"
+        />
+        <label for="datetime-input">Date</label>
         <input id="datetime-input" type="date" v-model="dateValue" />
-        <label for="time-input">Time Input:</label>
+        <label for="time-input">Time</label>
         <input id="time-input" type="time" step="0.001" v-model="timeValue" />
-        <label for="timezone">Select Timezone:</label>
+        <label for="timezone">Timezone</label>
         <select
           v-model="timeZoneValue"
           id="timezone"
@@ -169,6 +174,9 @@ export default {
 };
 </script>
 <style scoped>
+label {
+  color: white;
+}
 .inputs {
   display: flex;
   max-width: 500px;
