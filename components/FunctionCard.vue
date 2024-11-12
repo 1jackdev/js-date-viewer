@@ -1,29 +1,38 @@
 <template>
   <div class="function-card">
     <div class="content">
-      <h3 class="method-name">{{ methodName }}</h3>
-      <p class="method-return-type">Return Type: {{ returnType }}</p>
-      <p class="method-output">{{ processedOutput }}</p>
-    </div>
-    <div class="buttons">
-      <div class="button-wrapper">
+      <div class="method-card tooltip-container">
+        <span
+          class="method-tooltip"
+          @click="copyToClipboard(processedOutput, 'method')"
+          :class="{ 'tooltip-copied': isMethodNameCopied }"
+        >
+          {{ methodNameTooltipText() }}
+        </span>
         <button
-          @click="copyToClipboard(methodName, 'method')"
           class="btn btn-method"
+          @click="copyToClipboard(processedOutput, 'method')"
+          @mouseleave="handleMethodNameMouseLeave"
         >
-          <FontAwesomeIcon :icon="['far', 'copy']" /> Copy Method
+          <span class="method-name"> {{ methodName }} </span>
         </button>
-        <span v-if="showMethodTooltip" class="tooltip">Copied!</span>
       </div>
-      <div class="button-wrapper">
-        <button
+      <p class="method-return-type">Return Type: {{ returnType }}</p>
+      <div class="output-card tooltip-container">
+        <span
+          class="output-tooltip"
           @click="copyToClipboard(processedOutput, 'output')"
-          :disabled="isOutputEmpty"
-          class="btn btn-output"
+          :class="{ 'tooltip-copied': isOutputCopied }"
         >
-          <FontAwesomeIcon :icon="['far', 'copy']" /> Copy Output
+          {{ outputTooltipText() }}
+        </span>
+        <button
+          class="btn btn-output"
+          @click="copyToClipboard(processedOutput, 'output')"
+          @mouseleave="handleOutputMouseLeave"
+        >
+          <span class="output-text"> {{ processedOutput }} </span>
         </button>
-        <span v-if="showOutputTooltip" class="tooltip">Copied!</span>
       </div>
     </div>
   </div>
@@ -54,6 +63,8 @@ export default {
     const showMethodTooltip = ref(false);
     const showOutputTooltip = ref(false);
     const lastProcessedValue = ref("");
+    const isMethodNameCopied = ref(false);
+    const isOutputCopied = ref(false);
 
     // Computed properties
     const processedOutput = computed(() => {
@@ -74,6 +85,7 @@ export default {
     const isOutputEmpty = computed(() => {
       return processedOutput.value === "";
     });
+
     // Watch for changes in input value to force refresh
     watch(
       () => props.inputValue,
@@ -83,13 +95,40 @@ export default {
       { immediate: true }
     );
 
+    const methodNameTooltipText = () => {
+      return isMethodNameCopied.value ? "Copied!" : "Copy method name";
+    };
+
+    const outputTooltipText = () => {
+      return isOutputCopied.value ? "Copied!" : "Copy output";
+    };
+
+    const handleMethodNameMouseLeave = () => {
+      // Reset the state when mouse leaves the button
+      setTimeout(() => {
+        isMethodNameCopied.value = false;
+      }, 300);
+    };
+
+    const handleOutputMouseLeave = () => {
+      // Reset the state when mouse leaves the button
+      setTimeout(() => {
+        isOutputCopied.value = false;
+      }, 300);
+    };
+
     // Clipboard functionality
     const copyToClipboard = async (
       text: string | undefined,
       type: "method" | "output"
     ) => {
       if (!text) return;
+      console.log(text);
 
+      const valueToUpdate =
+        type === "method" ? isMethodNameCopied : isOutputCopied;
+
+      valueToUpdate.value = true;
       const tooltipRef =
         type === "method" ? showMethodTooltip : showOutputTooltip;
       const formattedText = type === "method" ? `${text}()` : text;
@@ -99,6 +138,7 @@ export default {
         tooltipRef.value = true;
         setTimeout(() => {
           tooltipRef.value = false;
+          valueToUpdate.value = false;
         }, 1500);
       } catch (error) {
         console.error("Failed to copy to clipboard:", error);
@@ -111,6 +151,12 @@ export default {
     return {
       processedOutput,
       returnType,
+      methodNameTooltipText,
+      outputTooltipText,
+      isMethodNameCopied,
+      handleMethodNameMouseLeave,
+      isOutputCopied,
+      handleOutputMouseLeave,
       copyToClipboard,
       showMethodTooltip,
       showOutputTooltip,
@@ -119,23 +165,23 @@ export default {
   },
 };
 </script>
-
-<style scoped>
+<style>
 .function-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 200px;
   height: 100%;
   padding: 1.5rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 15px;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
-}
 
-.function-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .content {
@@ -144,116 +190,108 @@ export default {
   flex-direction: column;
 }
 
+.method-card {
+  margin-top: 2rem;
+}
+
 .method-name {
   font-size: clamp(20px, 1.5vw, 36px);
-  text-align: center;
-  font-weight: 700;
+  font-weight: 600;
   color: #ffffff;
-  margin-bottom: 0.5rem;
+  text-align: center;
+  margin: auto auto 0.5rem;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.method-output {
-  font-size: 1rem;
+.method-return-type {
   color: #e0e0e0;
-  margin-bottom: 1.5rem;
-  word-break: break-word;
-  line-height: 1.6;
+  font-size: 0.9rem;
+  margin: auto;
+  padding-top: 10px;
+}
+
+/* Button Styles */
+.btn {
+  background: none;
+  border: none;
+}
+
+.btn-output,
+.btn-method {
+  height: 100%;
+  width: 100%;
+}
+
+.copy-icon {
+  color: white;
+  transition: color 0.2s ease;
+}
+
+.output-card {
+  position: relative;
+  min-height: 50px;
+  margin-top: 1rem;
+  padding: 0 1rem;
   background-color: rgba(0, 0, 0, 0.2);
-  padding: 1rem;
+  border: none;
   border-radius: 8px;
+  color: #e0e0e0;
+  font-size: 1rem;
+  line-height: 1.6;
+  word-break: break-word;
   overflow-x: auto;
   flex-grow: 1;
 }
 
-.method-return-type {
-  font-size: 0.9rem;
-  color: #e0e0e0;
-  margin: auto;
-}
-
-.buttons {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.button-wrapper {
-  position: relative;
-  flex: 1;
-}
-
-.btn {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+.output-text {
   color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
+}
+
+/* Tooltip Styles */
+.tooltip-container {
   position: relative;
-  overflow: hidden;
 }
 
-.btn::before {
-  content: "";
+.output-tooltip,
+.method-tooltip {
+  visibility: hidden;
   position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    120deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
-  transition: all 0.5s;
-}
-
-.btn:hover::before {
-  left: 100%;
-}
-
-.btn-method {
-  background-color: #4caf50;
-}
-
-.btn-output {
-  background-color: #2196f3;
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.btn:disabled {
-  background-color: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.tooltip {
-  position: absolute;
-  top: -40px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: #333;
+  padding: 4px 8px;
+  background-color: #158be6;
+  border-radius: 6px;
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 1rem;
+  font-weight: 500;
   white-space: nowrap;
-  z-index: 10;
+  margin-bottom: 5px;
+}
+
+.output-tooltip {
+  bottom: 70%;
+  animation: fadeInOut 0.1s;
+}
+
+.method-tooltip {
+  bottom: 100%;
   opacity: 0;
-  pointer-events: none;
-  animation: fadeInOut 1.5s ease-in-out forwards;
+  animation: fadeInOut 0.5s;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.tooltip-container:hover .method-tooltip,
+.tooltip-container:hover .output-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip-copied {
+  background-color: #28a745 !important;
+
+  &::after {
+    border-color: #28a745 transparent transparent transparent !important;
+  }
 }
 
 @keyframes fadeInOut {
