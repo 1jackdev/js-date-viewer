@@ -123,8 +123,6 @@ export default {
       type: "method" | "output"
     ) => {
       if (!text) return;
-      console.log(text);
-
       const valueToUpdate =
         type === "method" ? isMethodNameCopied : isOutputCopied;
 

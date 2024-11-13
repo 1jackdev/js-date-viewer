@@ -8,7 +8,7 @@
           id="function-search"
           type="text"
           placeholder="date, locale, etc."
-          v-model="functionSearch"
+          v-model="functionSearchRef"
         />
         <label for="datetime-input">Date</label>
         <input id="datetime-input" type="date" v-model="dateValue" />
@@ -16,13 +16,23 @@
         <input id="time-input" type="time" step="0.001" v-model="timeValue" />
         <label for="timezone">Timezone</label>
         <select
-          v-model="timeZoneValue"
+          v-model="timeZoneRef"
           id="timezone"
           @change="handleTimezoneChange"
         >
           <option
             v-for="{ label, value } in timezones"
             :key="value"
+            :value="value"
+          >
+            {{ label }}
+          </option>
+        </select>
+        <label for="locale">Locale</label>
+        <select v-model="localeRef" id="locale">
+          <option
+            v-for="{ value, label } in locales"
+            :key="value?.toString()"
             :value="value"
           >
             {{ label }}
@@ -44,7 +54,7 @@
 
 <script lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { timezones } from "~/server/helpers";
+import { timezones, locales } from "~/server/helpers";
 import { useNuxtApp } from "#app";
 import FunctionCard from "~/components/FunctionCard.vue";
 
@@ -60,23 +70,31 @@ export default {
     FunctionCard,
   },
   setup() {
-    const { $locale } = useNuxtApp();
+    const app = useNuxtApp();
+    const $locale = app.$locale as Intl.LocalesArgument;
+
     const newDate = new Date();
+    // In minutes, e.g., for GMT+1 it will be -60
+    const timezoneOffset = newDate.getTimezoneOffset();
+
+    // "subtract" the difference
+    const correctiveOffset = -timezoneOffset;
+    const gmtDate = new Date(newDate.getTime() + correctiveOffset * 60000);
 
     // Reactive references
-    const timeZoneValue = ref("");
-    const functionSearch = ref("");
-    const dateValue = ref(newDate.toISOString().slice(0, 10));
-    const timeValue = ref(newDate.toISOString().slice(11, 23));
+    const functionSearchRef = ref("");
+    const timeZoneRef = ref(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const localeRef = ref<Intl.LocalesArgument>($locale);
+    const dateValue = ref(gmtDate.toISOString().slice(0, 10));
+    const timeValue = ref(gmtDate.toISOString().slice(11, 23));
     const dateMethods = ref<DateMethodName[]>([]);
 
     // Format options ref to make it reactive
     const formatOptions = ref({
-      weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timeZone: timeZoneRef.value,
     });
 
     // Computed property for combined date-time
@@ -85,16 +103,22 @@ export default {
     });
 
     // Initialize timezone
-    const initializeTimezone = () => {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const initializeDefaultValues = () => {
       const foundTimezone = timezones.find(
-        (tz) => tz.value === browserTimezone
+        (tz) => tz.value === timeZoneRef.value
       );
-      timeZoneValue.value = foundTimezone?.value || "UTC";
-      formatOptions.value.timeZone = timeZoneValue.value;
+      timeZoneRef.value = foundTimezone?.value || "UTC";
+      formatOptions.value.timeZone = timeZoneRef.value;
+
+      const foundLocale = locales.find(
+        (locale) => locale.value === localeRef.value
+      )?.value;
+
+      localeRef.value = foundLocale || "en-DE";
     };
 
-    const filterDateFunctions = (date: Date) => {
+    const filterDateFunctions = () => {
+      const date = new Date();
       const proto = Object.getPrototypeOf(date);
       const allProps = Object.getOwnPropertyNames(proto);
       return allProps.filter(
@@ -105,7 +129,7 @@ export default {
               "function") &&
           !prop.startsWith("set") &&
           !prop.startsWith("constructor") &&
-          prop.toLowerCase().includes(functionSearch.value.toLowerCase())
+          prop.toLowerCase().includes(functionSearchRef.value.toLowerCase())
       );
     };
 
@@ -113,26 +137,26 @@ export default {
     const handleTimezoneChange = () => {
       formatOptions.value = {
         ...formatOptions.value,
-        timeZone: timeZoneValue.value,
+        timeZone: timeZoneRef.value,
       };
     };
 
     // Watch for timezone changes
-    watch(timeZoneValue, (newValue) => {
+    watch(timeZoneRef, () => {
       handleTimezoneChange();
     });
 
     // Initialize date methods
     onMounted(() => {
-      initializeTimezone();
-      dateMethods.value = filterDateFunctions(newDate);
+      initializeDefaultValues();
+      dateMethods.value = filterDateFunctions();
     });
 
     // Watch for changes in processing Function to force refresh
     watch(
-      () => functionSearch.value,
+      () => functionSearchRef.value,
       () => {
-        dateMethods.value = filterDateFunctions(newDate);
+        dateMethods.value = filterDateFunctions();
         // The computed property will automatically re-evaluate
       },
       { immediate: false }
@@ -142,11 +166,12 @@ export default {
       return (input: string) => {
         if (!input) return "";
         const date = new Date(input);
+
         // Handle methods that support localization
         if (method.includes("Locale")) {
           return (date[method] as Function).call(
             date,
-            $locale,
+            localeRef.value,
             formatOptions.value
           );
         }
@@ -160,13 +185,15 @@ export default {
     };
 
     return {
-      functionSearch,
+      functionSearchRef,
       dateValue,
       timeValue,
-      timeZoneValue,
+      timeZoneRef,
+      localeRef,
       dateMethods,
       createProcessingFunction,
       timezones,
+      locales,
       inputValue,
       handleTimezoneChange,
     };
